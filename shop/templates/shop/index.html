@@ -1,6 +1,13 @@
 {% extends 'shop/base.html' %}
 {% block content %}
   <h1>Alle User</h1>
+
+  <form method="post" class="mb-4">{% csrf_token %}
+    <div class="input-group" style="max-width:420px;">
+      <input id="user_search" name="q" type="text" class="form-control" placeholder="12-stellige User ID" value="{{ q }}">
+      <button class="btn btn-primary" type="submit">Öffnen</button>
+    </div>
+  </form>
   <table class="table">
     <thead><tr><th>Name</th><th>ID</th><th>Guthaben</th></tr></thead>
     <tbody>
@@ -13,4 +20,8 @@
       {% endfor %}
     </tbody>
   </table>
+
+<script>
+  document.getElementById('user_search').focus();
+</script>
 {% endblock %}

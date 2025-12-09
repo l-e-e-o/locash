@@ -1,0 +1,59 @@
+{% extends 'shop/base.html' %}
+{% block content %}
+  <div class="row">
+    <div class="col-md-6">
+      <h3>Neue Benutzer anlegen</h3>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="create_user" value="1">
+        {{ create_user_form.as_p }}
+        <button class="btn btn-primary">Erstellen</button>
+      </form>
+
+      <h4 class="mt-4">Bestehende Benutzer</h4>
+      <table class="table">
+        <thead><tr><th>username</th><th>display</th><th>id12</th><th>balance</th></tr></thead>
+        <tbody>
+          {% for u in users %}
+            <tr>
+              <td><a href="{% url 'user_detail' u.id12 %}">{{ u.username }}</a></td>
+              <td>{{ u.display_name }}</td>
+              <td>{{ u.id12 }}</td>
+              <td>{{ u.balance }}€</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col-md-6">
+      <h3>Produkte</h3>
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
+        <input type="hidden" name="create_product" value="1">
+        {{ create_product_form.as_p }}
+        <button class="btn btn-primary">Anlegen</button>
+      </form>
+
+      <h4 class="mt-4">Bestehende Produkte</h4>
+      <table class="table">
+        <thead><tr><th>Name</th><th>ID</th><th>Preis</th><th>Aktion</th></tr></thead>
+        <tbody>
+          {% for p in products %}
+            <tr>
+              <td>{{ p.name }}</td>
+              <td>{{ p.id12 }}</td>
+              <td>{{ p.price }}€</td>
+              <td>
+                <form method="post" style="display:inline;">{% csrf_token %}
+                  <input type="hidden" name="edit_price" value="1">
+                  <input type="hidden" name="product_pk" value="{{ p.pk }}">
+                  <input name="price" value="{{ p.price }}" class="form-control" style="width:120px;display:inline;">
+                  <button class="btn btn-sm btn-secondary">Speichern</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

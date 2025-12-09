@@ -1,0 +1,182 @@
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db import transaction as db_transaction
+from django.contrib import messages
+from decimal import Decimal
+
+from .models import User, Product, Transaction
+from .forms import TopUpForm, SendMoneyForm, BuyByIdForm, CreateUserForm, CreateProductForm, EditPriceForm
+
+def index(request):
+    q = request.GET.get('q', '').strip()
+    users = User.objects.all().order_by('username')
+    if q:
+        try:
+            user = User.objects.get(id12=q)
+            return redirect('user_detail', id12=user.id12)
+        except User.DoesNotExist:
+            messages.error(request, 'Kein User mit dieser ID gefunden.')
+    return render(request, 'shop/index.html', {'users': users})
+
+def user_detail(request, id12):
+    user = get_object_or_404(User, id12=id12)
+    topup_form = TopUpForm()
+    send_form = SendMoneyForm()
+    buyid_form = BuyByIdForm()
+    products = Product.objects.all()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'topup':
+            form = TopUpForm(request.POST)
+            if form.is_valid():
+                amount = form.cleaned_data['amount']
+                with db_transaction.atomic():
+                    user.balance += amount
+                    user.save()
+                    Transaction.objects.create(tx_type='TOPUP', amount=amount, user=user, note='Aufladung')
+                messages.success(request, f'{amount}€ aufgeladen.')
+            else:
+                messages.error(request, 'Ungültiger Betrag.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'topup_quick':
+            try:
+                amount = Decimal(request.POST.get('amount'))
+            except Exception:
+                messages.error(request, 'Ungültiger Betrag.')
+                return redirect('user_detail', id12=id12)
+            with db_transaction.atomic():
+                user.balance += amount
+                user.save()
+                Transaction.objects.create(tx_type='TOPUP', amount=amount, user=user, note='Schnell-Aufladung')
+            messages.success(request, f'{amount}€ aufgeladen.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'buy':
+            pid = request.POST.get('product_id')
+            product = get_object_or_404(Product, id12=pid)
+            if user.balance >= product.price:
+                with db_transaction.atomic():
+                    user.balance -= product.price
+                    user.save()
+                    Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
+                messages.success(request, f'Produkt {product.name} gekauft.')
+            else:
+                messages.error(request, 'Nicht genügend Guthaben.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'buy_by_id':
+            form = BuyByIdForm(request.POST)
+            if form.is_valid():
+                pid = form.cleaned_data['product_id']
+                try:
+                    product = Product.objects.get(id12=pid)
+                except Product.DoesNotExist:
+                    messages.error(request, 'Produkt nicht gefunden.')
+                    return redirect('user_detail', id12=id12)
+                if user.balance >= product.price:
+                    with db_transaction.atomic():
+                        user.balance -= product.price
+                        user.save()
+                        Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
+                    messages.success(request, f'Produkt {product.name} gekauft.')
+                else:
+                    messages.error(request, 'Nicht genügend Guthaben.')
+            else:
+                messages.error(request, 'Ungültige Produkt-ID.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'send':
+            form = SendMoneyForm(request.POST)
+            if form.is_valid():
+                to_id = form.cleaned_data['to_user_id']
+                amount = form.cleaned_data['amount']
+                try:
+                    to_user = User.objects.get(id12=to_id)
+                except User.DoesNotExist:
+                    messages.error(request, 'Empfänger nicht gefunden.')
+                    return redirect('user_detail', id12=id12)
+                if user.balance >= amount:
+                    with db_transaction.atomic():
+                        user.balance -= amount
+                        to_user.balance += amount
+                        user.save(); to_user.save()
+                        Transaction.objects.create(tx_type='SEND', amount=amount, user=user, to_user=to_user)
+                    messages.success(request, f'{amount}€ an {to_user.display_name} gesendet.')
+                else:
+                    messages.error(request, 'Nicht genügend Guthaben.')
+            else:
+                messages.error(request, 'Ungültige Eingabe.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'withdraw':
+            try:
+                amount = Decimal(request.POST.get('amount'))
+            except Exception:
+                messages.error(request, 'Ungültiger Betrag.')
+                return redirect('user_detail', id12=id12)
+            if user.balance >= amount:
+                with db_transaction.atomic():
+                    user.balance -= amount
+                    user.save()
+                    Transaction.objects.create(tx_type='WITHDRAW', amount=amount, user=user)
+                messages.success(request, f'{amount}€ entnommen.')
+            else:
+                messages.error(request, 'Nicht genügend Guthaben.')
+            return redirect('user_detail', id12=id12)
+
+    last_transactions = user.transactions.all()[:5]
+    context = {
+        'user': user,
+        'products': products,
+        'last_transactions': last_transactions,
+        'topup_form': topup_form,
+        'send_form': send_form,
+        'buyid_form': buyid_form,
+    }
+    return render(request, 'shop/user_detail.html', context)
+
+def manage(request):
+    users = User.objects.all().order_by('username')
+    products = Product.objects.all().order_by('name')
+
+    if request.method == 'POST':
+        if 'create_user' in request.POST:
+            form = CreateUserForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'User erstellt.')
+                return redirect('manage')
+            else:
+                messages.error(request, 'Fehler beim Erstellen des Users.')
+
+        elif 'create_product' in request.POST:
+            form = CreateProductForm(request.POST, request.FILES)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Produkt erstellt.')
+                return redirect('manage')
+            else:
+                messages.error(request, 'Fehler beim Erstellen des Produkts.')
+
+        elif 'edit_price' in request.POST:
+            pid = request.POST.get('product_pk')
+            product = get_object_or_404(Product, pk=pid)
+            form = EditPriceForm(request.POST, instance=product)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Preis geändert.')
+                return redirect('manage')
+            else:
+                messages.error(request, 'Fehler beim Aktualisieren des Preises.')
+
+    create_user_form = CreateUserForm()
+    create_product_form = CreateProductForm()
+    edit_price_form = EditPriceForm()
+    return render(request, 'shop/manage.html', {
+        'users': users,
+        'products': products,
+        'create_user_form': create_user_form,
+        'create_product_form': create_product_form,
+        'edit_price_form': edit_price_form,
+    })

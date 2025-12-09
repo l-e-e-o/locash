@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.db import transaction as db_transaction
 from django.contrib import messages
 from decimal import Decimal
@@ -6,16 +7,20 @@ from decimal import Decimal
 from .models import User, Product, Transaction
 from .forms import TopUpForm, SendMoneyForm, BuyByIdForm, CreateUserForm, CreateProductForm, EditPriceForm
 
+ALLOWED_OVERDRAFT = Decimal('-25.00')
+
 def index(request):
     q = request.GET.get('q', '').strip()
     users = User.objects.all().order_by('username')
-    if q:
-        try:
-            user = User.objects.get(id12=q)
-            return redirect('user_detail', id12=user.id12)
-        except User.DoesNotExist:
-            messages.error(request, 'Kein User mit dieser ID gefunden.')
-    return render(request, 'shop/index.html', {'users': users})
+    if request.method == 'POST':
+        q = request.POST.get('q', '').strip()
+        if q:
+            try:
+                user = User.objects.get(id12=q)
+                return redirect('user_detail', id12=user.id12)
+            except User.DoesNotExist:
+                messages.error(request, 'Kein User mit dieser ID gefunden.')
+    return render(request, 'shop/index.html', {'users': users, 'q': q})
 
 def user_detail(request, id12):
     user = get_object_or_404(User, id12=id12)
@@ -54,15 +59,20 @@ def user_detail(request, id12):
 
         elif action == 'buy':
             pid = request.POST.get('product_id')
-            product = get_object_or_404(Product, id12=pid)
-            if user.balance >= product.price:
-                with db_transaction.atomic():
-                    user.balance -= product.price
-                    user.save()
-                    Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
-                messages.success(request, f'Produkt {product.name} gekauft.')
-            else:
-                messages.error(request, 'Nicht genügend Guthaben.')
+            try:
+                product = Product.objects.get(id12=pid)
+            except Product.DoesNotExist:
+                messages.error(request, 'Produkt nicht gefunden.')
+                return redirect('user_detail', id12=id12)
+
+            if user.balance - product.price < ALLOWED_OVERDRAFT:
+                messages.error(request, 'Kauf würde Überziehungslimit überschreiten.')
+                return redirect('user_detail', id12=id12)
+            with db_transaction.atomic():
+                user.balance -= product.price
+                user.save()
+                Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
+            messages.success(request, f'Produkt {product.name} gekauft.')
             return redirect('user_detail', id12=id12)
 
         elif action == 'buy_by_id':
@@ -74,14 +84,14 @@ def user_detail(request, id12):
                 except Product.DoesNotExist:
                     messages.error(request, 'Produkt nicht gefunden.')
                     return redirect('user_detail', id12=id12)
-                if user.balance >= product.price:
-                    with db_transaction.atomic():
-                        user.balance -= product.price
-                        user.save()
-                        Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
-                    messages.success(request, f'Produkt {product.name} gekauft.')
-                else:
-                    messages.error(request, 'Nicht genügend Guthaben.')
+                if user.balance - product.price < ALLOWED_OVERDRAFT:
+                    messages.error(request, 'Kauf würde Überziehungslimit überschreiten.')
+                    return redirect('user_detail', id12=id12)
+                with db_transaction.atomic():
+                    user.balance -= product.price
+                    user.save()
+                    Transaction.objects.create(tx_type='BUY', amount=product.price, user=user, product=product)
+                messages.success(request, f'Produkt {product.name} gekauft.')
             else:
                 messages.error(request, 'Ungültige Produkt-ID.')
             return redirect('user_detail', id12=id12)
@@ -96,15 +106,15 @@ def user_detail(request, id12):
                 except User.DoesNotExist:
                     messages.error(request, 'Empfänger nicht gefunden.')
                     return redirect('user_detail', id12=id12)
-                if user.balance >= amount:
-                    with db_transaction.atomic():
-                        user.balance -= amount
-                        to_user.balance += amount
-                        user.save(); to_user.save()
-                        Transaction.objects.create(tx_type='SEND', amount=amount, user=user, to_user=to_user)
-                    messages.success(request, f'{amount}€ an {to_user.display_name} gesendet.')
-                else:
-                    messages.error(request, 'Nicht genügend Guthaben.')
+                if user.balance - amount < ALLOWED_OVERDRAFT:
+                    messages.error(request, 'Überziehungslimit würde überschritten.')
+                    return redirect('user_detail', id12=id12)
+                with db_transaction.atomic():
+                    user.balance -= amount
+                    to_user.balance += amount
+                    user.save(); to_user.save()
+                    Transaction.objects.create(tx_type='SEND', amount=amount, user=user, to_user=to_user)
+                messages.success(request, f'{amount}€ an {to_user.display_name} gesendet.')
             else:
                 messages.error(request, 'Ungültige Eingabe.')
             return redirect('user_detail', id12=id12)
@@ -115,14 +125,40 @@ def user_detail(request, id12):
             except Exception:
                 messages.error(request, 'Ungültiger Betrag.')
                 return redirect('user_detail', id12=id12)
-            if user.balance >= amount:
-                with db_transaction.atomic():
-                    user.balance -= amount
+            if user.balance - amount < ALLOWED_OVERDRAFT:
+                messages.error(request, 'Überziehungslimit würde überschritten.')
+                return redirect('user_detail', id12=id12)
+            with db_transaction.atomic():
+                user.balance -= amount
+                user.save()
+                Transaction.objects.create(tx_type='WITHDRAW', amount=amount, user=user)
+            messages.success(request, f'{amount}€ entnommen.')
+            return redirect('user_detail', id12=id12)
+
+        elif action == 'undo_last':
+            last = user.transactions.first()
+            if not last:
+                messages.error(request, 'Keine Transaktion zum Rückgängig machen.')
+                return redirect('user_detail', id12=id12)
+            with db_transaction.atomic():
+                if last.tx_type == 'BUY':
+                    user.balance += last.amount
                     user.save()
-                    Transaction.objects.create(tx_type='WITHDRAW', amount=amount, user=user)
-                messages.success(request, f'{amount}€ entnommen.')
-            else:
-                messages.error(request, 'Nicht genügend Guthaben.')
+                elif last.tx_type == 'TOPUP':
+                    user.balance -= last.amount
+                    user.save()
+                elif last.tx_type == 'SEND':
+                    to_user = last.to_user
+                    if to_user:
+                        to_user.balance -= last.amount
+                        to_user.save()
+                    user.balance += last.amount
+                    user.save()
+                elif last.tx_type == 'WITHDRAW':
+                    user.balance += last.amount
+                    user.save()
+                last.delete()
+                messages.success(request, 'Letzte Transaktion rückgängig gemacht.')
             return redirect('user_detail', id12=id12)
 
     last_transactions = user.transactions.all()[:5]

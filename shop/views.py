@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.db import transaction as db_transaction
+from django.db.models import Max
 from django.contrib import messages
 from decimal import Decimal
 
@@ -8,10 +9,11 @@ from .models import User, Product, Transaction
 from .forms import TopUpForm, SendMoneyForm, BuyByIdForm, CreateUserForm, CreateProductForm, EditPriceForm
 
 ALLOWED_OVERDRAFT = Decimal('-25.00')
+latest_time = Transaction.objects.aggregate(latest=Max("timestamp"))["latest"]
 
 def index(request):
     q = request.GET.get('q', '').strip()
-    users = User.objects.all().order_by('username')
+    users = User.objects.annotate(last_tx=Max('transactions__timestamp')).order_by('-last_tx')
     if request.method == 'POST':
         q = request.POST.get('q', '').strip()
         if q:

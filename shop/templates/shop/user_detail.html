@@ -3,18 +3,31 @@
   <h2>{{ user.display_name }} ({{ user.username }})</h2>
   <p><strong>ID:</strong> {{ user.id12 }}<br><strong>Guthaben:</strong> {{ user.balance }}€</p>
 
-  <h4>Letzte 5 Transaktionen</h4>
-  <ul class="list-group mb-3">
+  <h4>Letzte Transaktionen</h4>
+    <ul class="list-group mb-3">
     {% for t in last_transactions %}
-      <li class="list-group-item">
-        {{ t.timestamp }} - {{ t.get_tx_type_display }} - {{ t.amount }}€
-        {% if t.product %} - {{ t.product.name }}{% endif %}
-        {% if t.to_user %} - an {{ t.to_user.display_name }}{% endif %}
-      </li>
+        <li class="list-group-item">
+        <strong>{{ t.timestamp }}</strong><br>
+
+        {% if t.tx_type == 'SEND' %}
+            {% if t.user.id == user.id %}
+                💸 <strong>{{ t.amount }}€ gesendet</strong> an <strong>{{ t.to_user.display_name }}</strong>
+            {% else %}
+                📩 <strong>{{ t.amount }}€ erhalten</strong> von <strong>{{ t.user.display_name }}</strong>
+            {% endif %}
+        {% elif t.tx_type == 'BUY' %}
+            🛒 Kauf: {{ t.product.name }} – {{ t.amount }}€
+        {% elif t.tx_type == 'TOPUP' %}
+            💰 Aufladung: +{{ t.amount }}€
+        {% elif t.tx_type == 'WITHDRAW' %}
+            💲 Entnahme: -{{ t.amount }}€
+        {% endif %}
+        </li>
     {% empty %}
-      <li class="list-group-item">Keine Transaktionen.</li>
+        <li class="list-group-item">Keine Transaktionen.</li>
     {% endfor %}
-  </ul>
+    </ul>
+
 
   <div class="row">
     <div class="col-md-4">

@@ -82,23 +82,24 @@
     </div>
 
     <div class="col-md-4">
-      <h5>Geld schicken</h5>
-      <form method="post">{% csrf_token %}
-        <input type="hidden" name="action" value="send">
-        {{ send_form.to_user_id.label_tag }} {{ send_form.to_user_id }}
-        {{ send_form.amount.label_tag }} {{ send_form.amount }}
-        <div class="mt-2"><button class="btn btn-primary">Senden</button></div>
-      </form>
+        <h5>Geld schicken</h5>
+        <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="send">
+            {{ send_form.to_user_username.label_tag }}
+            {{ send_form.to_user_username }}
+            {{ send_form.amount.label_tag }}
+            {{ send_form.amount }}
+            <div class="mt-2"><button class="btn btn-primary">Senden</button></div>
+        </form>
 
-      <hr>
-      <h5>Geld entnehmen</h5>
-      <form method="post">{% csrf_token %}
-        <input type="hidden" name="action" value="withdraw">
-        <input name="amount" type="number" step="0.01" min="0.01" class="form-control" placeholder="Betrag">
-        <div class="mt-2"><button class="btn btn-warning">Entnehmen</button></div>
-      </form>
+        <hr>
+        <h5>Geld entnehmen</h5>
+        <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="withdraw">
+            <input name="amount" type="number" step="0.01" min="0.01" class="form-control" placeholder="Betrag">
+            <div class="mt-2"><button class="btn btn-warning">Entnehmen</button></div>
+        </form>
     </div>
-  </div>
 
 <script>
   const prodInput = document.getElementById('product_id_input');

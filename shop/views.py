@@ -101,10 +101,10 @@ def user_detail(request, id12):
         elif action == 'send':
             form = SendMoneyForm(request.POST)
             if form.is_valid():
-                to_id = form.cleaned_data['to_user_id']
+                username = form.cleaned_data['to_user_username']
                 amount = form.cleaned_data['amount']
                 try:
-                    to_user = User.objects.get(id12=to_id)
+                    to_user = User.objects.get(username=username)
                 except User.DoesNotExist:
                     messages.error(request, 'Empfänger nicht gefunden.')
                     return redirect('user_detail', id12=id12)

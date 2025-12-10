@@ -5,8 +5,8 @@ class TopUpForm(forms.Form):
     amount = forms.DecimalField(max_digits=8, decimal_places=2, min_value=0.01)
 
 class SendMoneyForm(forms.Form):
-    to_user_id = forms.CharField(max_length=12)
-    amount = forms.DecimalField(max_digits=8, decimal_places=2, min_value=0.01)
+    to_user_username = forms.CharField(max_length=150, label="Empfänger Username")
+    amount = forms.DecimalField(max_digits=8, decimal_places=2, min_value=0.01, label="Betrag")
 
 class BuyByIdForm(forms.Form):
     product_id = forms.CharField(max_length=12)

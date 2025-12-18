@@ -9,7 +9,7 @@ class SendMoneyForm(forms.Form):
     amount = forms.DecimalField(max_digits=8, decimal_places=2, min_value=0.01, label="Betrag")
 
 class BuyByIdForm(forms.Form):
-    product_id = forms.CharField(max_length=12)
+    product_id = forms.CharField(max_length=13)
 
 class CreateUserForm(forms.ModelForm):
     class Meta:

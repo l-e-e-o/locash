@@ -140,7 +140,7 @@ def user_detail(request, id12):
             return redirect('user_detail', id12=id12)
 
         elif action == 'undo_last':
-            last = user.transactions.first()
+            last = user.transactions.last()
             if not last:
                 messages.error(request, 'Keine Transaktion zum Rückgängig machen.')
                 return redirect('user_detail', id12=id12)

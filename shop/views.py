@@ -102,13 +102,8 @@ def user_detail(request, id12):
         elif action == 'send':
             form = SendMoneyForm(request.POST)
             if form.is_valid():
-                username = form.cleaned_data['to_user_username']
+                to_user = form.cleaned_data['to_user']
                 amount = form.cleaned_data['amount']
-                try:
-                    to_user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    messages.error(request, 'Empfänger nicht gefunden.')
-                    return redirect('user_detail', id12=id12)
                 if user.balance - amount < ALLOWED_OVERDRAFT:
                     messages.error(request, 'Überziehungslimit würde überschritten.')
                     return redirect('user_detail', id12=id12)

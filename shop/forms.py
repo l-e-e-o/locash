@@ -31,11 +31,22 @@ class CreateUserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['username', 'display_name', 'id12', 'balance']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Benutzername'}),
+            'display_name': forms.TextInput(attrs={'size': 40, 'class': 'form-control', 'placeholder': 'Anzeigename'}),
+            'id12': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ID12'}),
+            'balance': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Startguthaben in Euro', 'step': '0.01', 'min': '0.00'}),
+        }
 
 class CreateProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = ['name', 'price', 'id12']
+        widgets = {
+            'name': forms.TextInput(attrs={'size': 40, 'class': 'form-control', 'placeholder': 'Produktname'}),
+            'id12': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ID12'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Preis in Euro', 'step': '0.01', 'min': '0.01'}),
+        }
 
 class EditPriceForm(forms.ModelForm):
     class Meta:

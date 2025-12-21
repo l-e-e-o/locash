@@ -169,24 +169,67 @@
     const prodInput = document.getElementById('product_id_input');
     if (prodInput) prodInput.focus();
 
-    const timeoutMs = {% if request.GET.bought %}5000{% else %}20000{% endif %};
+    var timeoutMs = {% if request.GET.bought %}5000{% else %}20000{% endif %};
 
-    // Show and animate progress bar only when timeout is active
+    // Show and animate progress bar and allow resetting the timer.
     (function () {
       const progress = document.getElementById('redirect-progress');
       const bar = document.getElementById('redirect-progress-bar');
       if (!progress || !bar) return;
-      progress.style.display = 'block';
-      const start = Date.now();
+      let start = Date.now();
+      let rafId = null;
+      let timerId = null;
+
       function tick() {
         const elapsed = Date.now() - start;
         const pct = Math.max(0, 100 - (elapsed / timeoutMs) * 100);
         bar.style.width = pct + '%';
-        if (elapsed < timeoutMs) requestAnimationFrame(tick);
+        if (elapsed < timeoutMs) {
+          rafId = requestAnimationFrame(tick);
+        }
       }
-      requestAnimationFrame(tick);
-    })();
 
-    setTimeout(() => { window.location.href = "{% url 'index' %}"; }, timeoutMs);
+      function startProgress() {
+        progress.style.display = 'block';
+        start = Date.now();
+        bar.style.width = '100%';
+        if (rafId) cancelAnimationFrame(rafId);
+        if (timerId) clearTimeout(timerId);
+        rafId = requestAnimationFrame(tick);
+        timerId = setTimeout(() => { window.location.href = "{% url 'index' %}"; }, timeoutMs);
+      }
+
+        // Start on load
+        startProgress();
+
+        // Reset when the balance collapse toggle is clicked
+        const toggleBtn = document.querySelector('[data-bs-target="#balanceSection"]');
+        if (toggleBtn) toggleBtn.addEventListener('click', (e) => {
+          timeoutMs = 20000;  // Extend timeout on user interaction
+          startProgress();
+        });
+
+        // When any buy form is submitted, set timeout to 5s and restart progress
+        const buyForms = document.querySelectorAll('form input[name="action"][value="buy"], form input[name="action"][value="buy_by_id"]');
+        buyForms.forEach(input => {
+          const f = input.closest('form');
+          if (!f) return;
+          f.addEventListener('submit', () => {
+            timeoutMs = 5000;
+            startProgress();
+          });
+        });
+
+        // When undo or redo specific are submitted, reset to 20s
+        const undoRedoForms = document.querySelectorAll('form input[name="action"][value="undo_specific"], form input[name="action"][value="redo_specific"], form input[name="action"][value="undo_last"]');
+        undoRedoForms.forEach(input => {
+          const f = input.closest('form');
+          if (!f) return;
+          f.addEventListener('submit', () => {
+            timeoutMs = 20000;
+            startProgress();
+          });
+        });
+    })();
   </script>
 {% endblock %}

@@ -78,7 +78,7 @@
       <div>
         <ul class="list-group mb-2">
         {% for t in last_transactions %}
-          <li class="list-group-item{% if t.canceled %} list-group-item-danger{% elif t.tx_type == 'SEND' %} list-group-item-info{% elif t.tx_type == 'TOPUP' %} list-group-item-primary{% elif t.tx_type == 'WITHDRAW' %} list-group-item-warning{% endif %}">
+          <li class="list-group-item{% if t.canceled %} list-group-item-danger text-decoration-line-through{% elif t.tx_type == 'SEND' %} list-group-item-info{% elif t.tx_type == 'TOPUP' %} list-group-item-primary{% elif t.tx_type == 'WITHDRAW' %} list-group-item-warning{% endif %}">
             <div class="row justify-content-end">
               <div class="col-md-8">
                 <strong>{{ t.timestamp }}</strong><br>

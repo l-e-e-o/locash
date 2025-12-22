@@ -220,12 +220,17 @@
     if (prodInput) prodInput.focus();
 
     var timeoutMs = {% if request.GET.bought %}5000{% else %}20000{% endif %};
+    {# disable timeout when `?kiosk=` is one of: no, 0, false (case-insensitive) #}
+    {% with k=request.GET.kiosk|default:""|lower %}
+    var disableTimeout = {% if k == 'no' or k == '0' or k == 'false' %}true{% else %}false{% endif %};
+    {% endwith %}
 
     // Show and animate progress bar and allow resetting the timer.
     (function () {
       const progress = document.getElementById('redirect-progress');
       const bar = document.getElementById('redirect-progress-bar');
       if (!progress || !bar) return;
+      if (disableTimeout) return; // do not start timers when static mode is requested
       let start = Date.now();
       let rafId = null;
       let timerId = null;
